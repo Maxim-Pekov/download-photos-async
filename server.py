@@ -9,6 +9,8 @@ async def archive(request):
     hash = request.match_info.get('archive_hash', "Anonymous")
     files_path = os.path.join('test_photos', hash)
     response = web.StreamResponse()
+    if not os.path.exists(files_path):
+        return web.HTTPNotFound(reason=404, text='Ошибка 404, папка с фотографиями удалена')
     proc = await asyncio.create_subprocess_exec(
         "zip", "-r", "-", ".",
         stdout=asyncio.subprocess.PIPE,
@@ -33,6 +35,6 @@ if __name__ == '__main__':
     app = web.Application()
     app.add_routes([
         web.get('/', handle_index_page),
-        web.get('/archive/{archive_hash}/', archive),
+        web.get('/archive/{archive_hash}', archive),
     ])
-    web.run_app(app)
+    web.run_app(app, port=8000)
