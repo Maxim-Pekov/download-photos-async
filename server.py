@@ -8,20 +8,20 @@ from aiohttp import web
 
 
 DOWNLOAD_DELAY = 0
-SIZE = 100_000
+CHUNK_SIZE = 100_000
 logger = logging.getLogger(__name__)
 
 
-async def archive(request):
-    hash = request.match_info.get('archive_hash', "Anonymous")
-    files_path = os.path.join(app.args.photo_folder, hash)
+async def get_photo_archive(request):
+    archive_hash = request.match_info.get('archive_hash')
+    files_path = os.path.join(app.args.photo_folder, archive_hash)
     response = web.StreamResponse()
     if not os.path.exists(files_path):
         logger.info(f'There are no photos in the directory "{files_path}"')
         return web.HTTPNotFound(
             reason=404,
             text='Ошибка 404, папка с фотографиями удалена')
-    proc = await asyncio.create_subprocess_exec(
+    process = await asyncio.create_subprocess_exec(
         "zip", "-r", "-", ".",
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
@@ -32,19 +32,19 @@ async def archive(request):
     await response.prepare(request)
     chunk_count = 1
     try:
-        while not proc.stdout.at_eof():
-            archive_chunk = await proc.stdout.read(SIZE)
+        while not process.stdout.at_eof():
+            archive_chunk = await process.stdout.read(CHUNK_SIZE)
             await response.write(archive_chunk)
-            logger.info(f'Sending archive chunk №{chunk_count} ({SIZE} bytes)')
+            logger.info(f'Sending archive chunk №{chunk_count} ({CHUNK_SIZE} bytes)')
             chunk_count += 1
             await asyncio.sleep(DOWNLOAD_DELAY)
     except asyncio.CancelledError:
         logger.info('Download was interrupted')
         raise
     finally:
-        if not proc.stdout.at_eof():
-            proc.kill()
-            proc.communicate()
+        if not process.stdout.at_eof():
+            process.kill()
+            process.communicate()
     return response
 
 
@@ -76,17 +76,19 @@ if __name__ == '__main__':
     app = web.Application()
     app.args = parser.parse_args()
 
-    if app.args.is_logging:
-        logging.basicConfig(
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            datefmt='%d-%m-%Y %I:%M:%S %p',
-            level=logging.INFO)
+    logging.basicConfig(
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%d-%m-%Y %I:%M:%S %p',
+        level=logging.INFO)
+    if not app.args.is_logging:
+        logging.disable('INFO')
+
     if app.args.download_delay:
         DOWNLOAD_DELAY = 1
 
     app.add_routes([
         web.get('/', handle_index_page),
-        web.get('/archive/{archive_hash}', archive),
-        web.get('/archive/{archive_hash}/', archive),
+        web.get('/archive/{archive_hash}', get_photo_archive),
+        web.get('/archive/{archive_hash}/', get_photo_archive),
     ])
-    web.run_app(app, port=8000)
+    web.run_app(app)
