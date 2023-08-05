@@ -31,11 +31,13 @@ async def archive(request):
             await response.write(x)
             logger.info(f'Sending archive chunk №{chunk_count} ({SIZE} bytes)')
             chunk_count += 1
+            raise SystemExit
             await asyncio.sleep(1)
     except asyncio.CancelledError:
         logger.info(f'Download was interrupted')
         raise
     finally:
+        proc.kill()
         proc.communicate()
     return response
 
