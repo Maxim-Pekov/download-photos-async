@@ -1,0 +1,13 @@
+version: "3.3"
+
+services:
+  burger_project:
+    build: .
+    tty: true
+    image: download_photo
+    container_name: download_photo
+    ports:
+      - 8000:8000
+    command: >
+      sh -c "python server.py"
+    restart: always
