@@ -13,29 +13,34 @@ logger = logging.getLogger(__name__)
 
 
 async def get_photo_archive(request):
-    archive_hash = request.match_info.get('archive_hash')
+    archive_hash = request.match_info['archive_hash']
     files_path = os.path.join(app.args.photo_folder, archive_hash)
     response = web.StreamResponse()
     if not os.path.exists(files_path):
         logger.info(f'There are no photos in the directory "{files_path}"')
         return web.HTTPNotFound(
             reason=404,
-            text='Ошибка 404, папка с фотографиями удалена')
+            text='Ошибка 404, папка с фотографиями удалена'
+        )
     process = await asyncio.create_subprocess_exec(
         "zip", "-r", "-", ".",
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        cwd=files_path)
+        cwd=files_path
+    )
     response.headers['Content-Type'] = 'text/html'
-    response.headers['Content-Disposition'] = ('attachment; '
-                                               'filename="photos.zip"')
+    response.headers['Content-Disposition'] = (
+        'attachment; filename="photos.zip"'
+    )
     await response.prepare(request)
     chunk_count = 1
     try:
         while not process.stdout.at_eof():
             archive_chunk = await process.stdout.read(CHUNK_SIZE)
             await response.write(archive_chunk)
-            logger.info(f'Sending archive chunk №{chunk_count} ({CHUNK_SIZE} bytes)')
+            logger.info(
+                f'Sending archive chunk №{chunk_count} ({CHUNK_SIZE} bytes)'
+            )
             chunk_count += 1
             await asyncio.sleep(DOWNLOAD_DELAY)
     except asyncio.CancelledError:
@@ -57,19 +62,26 @@ async def handle_index_page(request):
 if __name__ == '__main__':
     def create_parser():
         parser = argparse.ArgumentParser(
-            description='скачивает фотографии одним архивом ')
+            description='скачивает фотографии одним архивом '
+        )
         parser.add_argument(
-            '-l', '--is_logging',
+            '-l',
+            '--is_logging',
             action='store_true',
-            help='Что бы включить логирование, укажите этот параметр')
+            help='Что бы включить логирование, укажите этот параметр'
+        )
         parser.add_argument(
-            '-d', '--download_delay',
+            '-d',
+            '--download_delay',
             action='store_true',
-            help='Укажите флаг, чтобы включить задержку скачивания в 1 сек.')
+            help='Укажите флаг, чтобы включить задержку скачивания в 1 сек.'
+        )
         parser.add_argument(
-            '-f', '--photo_folder',
+            '-f',
+            '--photo_folder',
             help='путь к каталогу с фотографиями',
-            default='test_photos', type=str, nargs='?')
+            default='test_photos', type=str, nargs='?'
+        )
         return parser
     parser = create_parser()
 
@@ -79,7 +91,8 @@ if __name__ == '__main__':
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%d-%m-%Y %I:%M:%S %p',
-        level=logging.INFO)
+        level=logging.INFO
+    )
     if not app.args.is_logging:
         logging.disable('INFO')
 
